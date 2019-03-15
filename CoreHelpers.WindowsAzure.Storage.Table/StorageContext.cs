@@ -269,7 +269,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 			return result.FirstOrDefault<T>();
 		}
 
-		public async Task<IQueryable<T>> QueryAsync<T>(string partitionKey,  int maxItems = 0) where T : new()
+		public async Task<IQueryable<T>> QueryAsync<T>(string partitionKey, int maxItems = 0) where T : new()
 		{
 			return await QueryAsyncInternal<T>(partitionKey, null, maxItems);
 		}
@@ -278,8 +278,18 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 		{
 			return await QueryAsyncInternal<T>(null, null, maxItems);
 		}
-		
-		private string GetTableName<T>() 
+
+        public async Task<IQueryable<T>> QueryWithFilterAsync<T>(string filter, int maxItems = 0 ) where T : new()
+        {
+            return await QueryAsyncInternal<T>(null, null, maxItems, null, filter);
+        }
+
+        public async Task<IQueryable<T>> QueryWithFilterAsync<T>(string filter, string partitionKey, int maxItems = 0) where T : new()
+        {
+            return await QueryAsyncInternal<T>(partitionKey, null, maxItems, null, filter);
+        }
+
+        private string GetTableName<T>() 
 		{
 			return GetTableName(typeof(T));
 		}
@@ -391,20 +401,40 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 			await this.StoreAsync(nStoreOperation.delete, models);
 		}
 
-		internal async Task<QueryResult<T>> QueryAsyncInternalSinglePage<T>(string partitionKey, string rowKey, int maxItems = 0, TableContinuationToken continuationToken = null) where T : new()
+        public async Task DeleteAsync<T>(string filter) where T : new()
+        {
+            await DeleteAsync<T>(null, filter); 
+        }
+
+        private async Task DeleteAsync<T>(string partitionKey, string rowKey, TableContinuationToken nextToken = null, string filter = null) where T : new()
+        {
+            // query the first page
+            var result = await QueryAsyncInternalSinglePage<T>(partitionKey, rowKey, 0, nextToken, filter);
+            await DeleteAsync(result);
+            var token = result.NextToken;
+
+            // force gb, if the result set is very large we do not want to keep the items in memory
+            result = null;
+
+            if (token != null)
+                await this.DeleteAsync<T>(partitionKey, rowKey, result.NextToken, filter);
+            
+        }
+
+		internal async Task<QueryResult<T>> QueryAsyncInternalSinglePage<T>(string partitionKey, string rowKey, int maxItems = 0, TableContinuationToken continuationToken = null, string filter = null) where T : new()
 		{
 			try
 			{
 				// notify delegate
 				if (_delegate != null)
-					_delegate.OnQuerying(typeof(T), partitionKey, rowKey, maxItems, continuationToken != null);				
-					
-				// Retrieve a reference to the table.
-				CloudTable table = GetTableReference(GetTableName<T>());
+					_delegate.OnQuerying(typeof(T), partitionKey, rowKey, maxItems, continuationToken != null, filter);
 
-				// lookup the entitymapper
-				var entityMapper = _entityMapperRegistry[typeof(T)];
+                // lookup the entitymapper
+                var entityMapper = _entityMapperRegistry[typeof(T)];
 
+                // Retrieve a reference to the table.
+                CloudTable table = GetTableReference(entityMapper.TableName);
+                
 				// Construct the query to get all entries
 				TableQuery<DynamicTableEntity<T>> query = new TableQuery<DynamicTableEntity<T>>();
 
@@ -421,17 +451,26 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 				// define the max query items
 				if (maxItems > 0)
 					query = query.Take(maxItems);
-					
-				// build the query filter
+
+                // build the query filter
+                string where = "";
 				if (partitionKey != null && rowKey != null)
-					query = query.Where(TableQuery.CombineFilters(partitionKeyFilter, TableOperators.And, rowKeyFilter));
+                    where = TableQuery.CombineFilters(partitionKeyFilter, TableOperators.And, rowKeyFilter);
 				else if (partitionKey != null && rowKey == null)
-					query = query.Where(partitionKeyFilter);										
-				else if (partitionKey == null && rowKey != null)
+                    where = partitionKeyFilter;
+                else if (rowKey != null && partitionKey == null)
+                    where = rowKeyFilter;
+                else if (partitionKey == null && rowKey != null)
 					throw new Exception("PartitionKey must have a value");
-				
-				// execute the query											
-				var queryResult = await table.ExecuteQuerySegmentedAsync(query, continuationToken);
+
+                if (!string.IsNullOrWhiteSpace(filter))
+                    where = TableQuery.CombineFilters(where, TableOperators.And, filter);
+
+                // apply filter
+                query = query.Where(where);
+
+                // execute the query											
+                var queryResult = await table.ExecuteQuerySegmentedAsync(query, continuationToken);
 				
 				// map all to the original models
 				List<T> result = new List<T>();
@@ -440,7 +479,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 
 				// notify delegate
 				if (_delegate != null)
-					_delegate.OnQueryed(typeof(T), partitionKey, rowKey, maxItems, continuationToken != null, null);
+					_delegate.OnQueryed(typeof(T), partitionKey, rowKey, maxItems, continuationToken != null, null, filter);
 
 				// done 
 				return new QueryResult<T>() 
@@ -457,7 +496,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 
                     // notify delegate
                     if (_delegate != null)
-                        _delegate.OnQueryed(typeof(T), partitionKey, rowKey, maxItems, continuationToken != null, null);
+                        _delegate.OnQueryed(typeof(T), partitionKey, rowKey, maxItems, continuationToken != null, null, filter);
 
                     // done
                     return new QueryResult<T>()
@@ -472,7 +511,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 
                     // notify delegate
                     if (_delegate != null)
-                        _delegate.OnQueryed(typeof(T), partitionKey, rowKey, maxItems, continuationToken != null, e);
+                        _delegate.OnQueryed(typeof(T), partitionKey, rowKey, maxItems, continuationToken != null, e, filter);
 
                     // throw exception
                     throw e;
@@ -480,17 +519,17 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 			}
 		}
 		
-		private async Task<IQueryable<T>> QueryAsyncInternal<T>(string partitionKey, string rowKey, int maxItems = 0, TableContinuationToken nextToken = null) where T : new()
+		private async Task<IQueryable<T>> QueryAsyncInternal<T>(string partitionKey, string rowKey, int maxItems = 0, TableContinuationToken nextToken = null, string filter = null) where T : new()
 		{			
 			// query the first page
-			var result = await QueryAsyncInternalSinglePage<T>(partitionKey, rowKey, maxItems, nextToken);
+			var result = await QueryAsyncInternalSinglePage<T>(partitionKey, rowKey, maxItems, nextToken, filter);
 			
 			// check if we have reached the max items
 			if (maxItems > 0 && result.Items.Count() >= maxItems)
 				return result.Items;
 			
 			if (result.NextToken != null) 						
-				return result.Items.Concat(await this.QueryAsyncInternal<T>(partitionKey, rowKey, maxItems, result.NextToken));
+				return result.Items.Concat(await this.QueryAsyncInternal<T>(partitionKey, rowKey, maxItems, result.NextToken, filter));
 			else 			
 				return result.Items;					
 		}
