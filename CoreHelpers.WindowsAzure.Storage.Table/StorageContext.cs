@@ -397,14 +397,14 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 			{
 				// notify delegate
 				if (_delegate != null)
-					_delegate.OnQuerying(typeof(T), partitionKey, rowKey, maxItems, continuationToken != null);				
-					
-				// Retrieve a reference to the table.
-				CloudTable table = GetTableReference(GetTableName<T>());
+					_delegate.OnQuerying(typeof(T), partitionKey, rowKey, maxItems, continuationToken != null);
 
-				// lookup the entitymapper
-				var entityMapper = _entityMapperRegistry[typeof(T)];
+                // lookup the entitymapper
+                var entityMapper = _entityMapperRegistry[typeof(T)];
 
+                // Retrieve a reference to the table.
+                CloudTable table = GetTableReference(entityMapper.TableName);
+                
 				// Construct the query to get all entries
 				TableQuery<DynamicTableEntity<T>> query = new TableQuery<DynamicTableEntity<T>>();
 
