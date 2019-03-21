@@ -403,16 +403,15 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 
         public async Task DeleteAsync<T>(string filter) where T : new()
         {
-            await DeleteAsync<T>(null, filter); 
+            await DeleteAsync<T>(null, null, filter: filter); 
         }
 
         private async Task DeleteAsync<T>(string partitionKey, string rowKey, TableContinuationToken nextToken = null, string filter = null) where T : new()
         {
             // query the first page
             var result = await QueryAsyncInternalSinglePage<T>(partitionKey, rowKey, 0, nextToken, filter);
-            await DeleteAsync(result);
+            await DeleteAsync(result.Items.AsEnumerable<T>());
             var token = result.NextToken;
-
             // force gb, if the result set is very large we do not want to keep the items in memory
             result = null;
 
@@ -463,8 +462,10 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
                 else if (partitionKey == null && rowKey != null)
 					throw new Exception("PartitionKey must have a value");
 
-                if (!string.IsNullOrWhiteSpace(filter))
+                if (!string.IsNullOrWhiteSpace(filter) && !string.IsNullOrWhiteSpace(where))
                     where = TableQuery.CombineFilters(where, TableOperators.And, filter);
+                else if (!string.IsNullOrWhiteSpace(filter))
+                    where = filter;
 
                 // apply filter
                 query = query.Where(where);
