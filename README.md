@@ -142,3 +142,12 @@ public class JObjectModel
  public Dictionary<string, string> Data { get; set; } = new Dictionary<string, string>();
 }
 ```
+
+# Contributing to Azure Storage Table
+Fork as usual and go crazy!
+
+Contributors
+Thank you to the following wonderful people for contributing to Azure Storage Table:
+
+* [@petero-dk](https://github.com/petero-dk)
+* [@afrischk](https://github.com/afrischk)
