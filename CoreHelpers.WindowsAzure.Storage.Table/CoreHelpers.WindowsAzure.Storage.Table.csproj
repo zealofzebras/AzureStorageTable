@@ -1,21 +1,49 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>    
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net48</TargetFrameworks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <LangVersion>6</LangVersion>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/CoreHelpers/AzureStorageTable</PackageProjectUrl>   
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/CoreHelpers/AzureStorageTable.git</RepositoryUrl>    
+    <Description>This projects implements an abstraction for Azure Storage Tables to use POCOs because deriving every entity from ITableEntity or TableEntity looks like a step backwards. The current implementation is intended to be an abstraction to store every existing entity into Azure Table Store.</Description>
+    <PackageTags>poco dotnet-core dotnet azure azure-storage azure-table-storage</PackageTags>
+    <Copyright>(c) Dirk Eisenberg</Copyright>    
   </PropertyGroup>
 
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <LangVersion>default</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <LangVersion>default</LangVersion>
+  </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="WindowsAzure.Storage" Version="8.4.0" />
+    <None Remove="Azure.Data.Tables" />
+    <None Remove="Serialization\" />
+    <None Remove="Newtonsoft.Json" />
+  </ItemGroup>
+  <ItemGroup>
+     <None Include="..\LICENSE" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.Linq.Queryable" Version="4.3.0" />
-    <PackageReference Include="Handlebars.Net" Version="1.9.0" />
+    <PackageReference Include="Handlebars.Net" Version="2.1.2" />
     <PackageReference Include="System.Linq.Parallel" Version="4.3.0" />
+    <PackageReference Include="Azure.Data.Tables" Version="12.8.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Attributes\" />
     <Folder Include="Extensions\" />
-    <Folder Include="Delegates\" />
-    <Folder Include="Services\" />
     <Folder Include="Internal\" />
+    <Folder Include="Serialization\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CoreHelpers.WindowsAzure.Storage.Table.Abstractions\CoreHelpers.WindowsAzure.Storage.Table.Abstractions.csproj" />
   </ItemGroup>
 </Project>

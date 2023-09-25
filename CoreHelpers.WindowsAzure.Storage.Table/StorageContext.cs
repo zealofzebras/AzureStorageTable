@@ -1,95 +1,60 @@
 ﻿using System;
-using System.Reflection;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.WindowsAzure.Storage;
-using Microsoft.WindowsAzure.Storage.Auth;
-using Microsoft.WindowsAzure.Storage.Table;
-using CoreHelpers.WindowsAzure.Storage.Table.Attributes;
-using System.IO;
-using CoreHelpers.WindowsAzure.Storage.Table.Services;
-using CoreHelpers.WindowsAzure.Storage.Table.Models;
+using Azure.Data.Tables;
 
 namespace CoreHelpers.WindowsAzure.Storage.Table
 {
-	public enum nStoreOperation {
-		insertOperation, 
-		insertOrReplaceOperation,
-		mergeOperation,
-		mergeOrInserOperation,
-		delete
-	}
+    public partial class StorageContext : IStorageContext
+	{						
+		private IStorageContextDelegate _delegate { get; set; }		
+		private string _connectionString;
 
-	public class QueryResult<T>
-	{
-		public IQueryable<T> Items { get; internal set; }
-		public TableContinuationToken NextToken { get; internal set; }
-	}
-	
-	
-	
-	public class StorageContext : IDisposable
-	{		
-		private CloudStorageAccount _storageAccount { get; set; }
-		private Dictionary<Type, DynamicTableEntityMapper> _entityMapperRegistry { get; set; } = new Dictionary<Type, DynamicTableEntityMapper>();
-		private bool _autoCreateTable { get; set; } = false;
-		private IStorageContextDelegate _delegate { get; set; }
-		
 		public StorageContext(string storageAccountName, string storageAccountKey, string storageEndpointSuffix = null)
 		{
-			var connectionString = String.Format("DefaultEndpointsProtocol={0};AccountName={1};AccountKey={2}", "https", storageAccountName, storageAccountKey);
+            _connectionString = String.Format("DefaultEndpointsProtocol={0};AccountName={1};AccountKey={2}", "https", storageAccountName, storageAccountKey);
 			if (!String.IsNullOrEmpty(storageEndpointSuffix))
-				connectionString = String.Format("DefaultEndpointsProtocol={0};AccountName={1};AccountKey={2};EndpointSuffix={3}", "https", storageAccountName, storageAccountKey, storageEndpointSuffix);
-			
-			_storageAccount = CloudStorageAccount.Parse(connectionString);
+                _connectionString = String.Format("DefaultEndpointsProtocol={0};AccountName={1};AccountKey={2};EndpointSuffix={3}", "https", storageAccountName, storageAccountKey, storageEndpointSuffix);					
 		}
 
         public StorageContext(string connectionString)
         {
-            _storageAccount = CloudStorageAccount.Parse(connectionString);
+			_connectionString = connectionString;
         }
 
         public StorageContext(StorageContext parentContext)
-		{
-            // we reference the storage account
-			_storageAccount = parentContext._storageAccount;
-			
+		{            
             // we reference the entity mapper
-            _entityMapperRegistry = new Dictionary<Type, DynamicTableEntityMapper>(parentContext._entityMapperRegistry);
+            _entityMapperRegistry = new Dictionary<Type, StorageEntityMapper>(parentContext._entityMapperRegistry);
 
             // we are using the delegate
 			this.SetDelegate(parentContext._delegate);
-		}
 
-		public void Dispose()
-		{
-			
-		}
-		
-		public void SetDelegate(IStorageContextDelegate delegateModel)
-		{
-			_delegate = delegateModel;		
-		}
-		
-		public StorageContext EnableAutoCreateTable() 
-		{
-			_autoCreateTable = true;
-			return this;
-		}
+			// take the tablename prefix
+			_tableNamePrefix = parentContext._tableNamePrefix;
 
-		public void AddEntityMapper(Type entityType, DynamicTableEntityMapper entityMapper)
-		{
-			_entityMapperRegistry.Add(entityType, entityMapper);
-		}
-
-        public void RemoveEntityMapper(Type entityType)
-        {
-            if (_entityMapperRegistry.ContainsKey(entityType))
-                _entityMapperRegistry.Remove(entityType);
+			// store the connection string
+			_connectionString = parentContext._connectionString;
         }
         
-        public void AddAttributeMapper() 
+        public void Dispose()
+		{}
+
+		public void SetDelegate(IStorageContextDelegate delegateModel)
+			=> _delegate = delegateModel;
+
+		public IStorageContextDelegate GetDelegate()
+			=> _delegate;
+
+		public IStorageContext CreateChildContext()
+			=> new StorageContext(this);
+			        						
+        public TableClient GetTableClient<T>()
+        {
+			var tableName = GetTableName<T>();
+			return GetTableClient(tableName);
+        }
+
+        private TableClient GetTableClient(string tableName)
         {
             AddAttributeMapper(Assembly.GetEntryAssembly());
 

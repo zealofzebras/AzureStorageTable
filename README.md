@@ -1,4 +1,4 @@
-[![Build status](https://ci.appveyor.com/api/projects/status/egop18jxjsfiublg?svg=true)](https://ci.appveyor.com/project/dei79/azurestoragetable)
+[![Build Status](https://github.com/CoreHelpers/AzureStorageTable/actions/workflows/ci-build.yml/badge.svg)](https://github.com/CoreHelpers/AzureStorageTable/actions/workflows/ci-build.yml)
 
 # AzureStorageTable
 This projects implements an abstraction for Azure Storage Tables to use POCOs because deriving every entity 
@@ -124,6 +124,22 @@ public class VArrayModel
 
   [VirtualList(PropertyFormat: "DE{{index}}", Digits: 2)]
   public List<int> DataElements { get; set; } = new List<int>();
+}
+```
+
+## Virtual Dictionary Attributes
+When storing dictionaries in Azure Table store there are two options. The first option is to store it as a JSON payload and the second option is to expand the dictionary with his items to separate properties in Azure Table Store with the following code: 
+
+```csharp
+[Storable(Tablename: "VDictionaryModels")]
+public class VDictionaryModel
+{
+  [PartitionKey]
+  [RowKey]
+  public string UUID { get; set; }
+
+  [VirtualDictionary(PropertyPrefix: "DE")]
+  public Dictionary<string, int> DataElements { get; set; } = new Dictionary<string, int>();
 }
 ```
 

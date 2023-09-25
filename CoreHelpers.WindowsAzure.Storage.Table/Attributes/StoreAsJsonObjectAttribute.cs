@@ -1,14 +1,14 @@
 ﻿using System;
 using System.Collections;
 using System.Reflection;
-using Microsoft.WindowsAzure.Storage.Table;
+using CoreHelpers.WindowsAzure.Storage.Table.Serialization;
 using Newtonsoft.Json;
 
 namespace CoreHelpers.WindowsAzure.Storage.Table.Attributes
 {
 	[AttributeUsage(AttributeTargets.Property)]
-	public class StoreAsJsonObjectAttribute : StoreAsAttribute
-	{	
+	public class StoreAsJsonObjectAttribute : Attribute, IVirtualTypeAttribute
+    {	
 		protected Type ObjectType { get; set; }
 		
 		public StoreAsJsonObjectAttribute() 
@@ -18,35 +18,57 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Attributes
 		{
 			ObjectType = objectType;
 		}
-		
-		public override EntityProperty ConvertToEntityProperty(PropertyInfo property, object obj)
-		{
-			// get the value 
-			var element = property.GetValue(obj);
+			
+        public void WriteProperty<T>(PropertyInfo propertyInfo, T obj, TableEntityBuilder builder)
+        {
+            // get the value 
+            var element = propertyInfo.GetValue(obj);
             if (element == null)
-                return null;
+                return;
 
-			// convert to strong 
-			var stringifiedElement = JsonConvert.SerializeObject(element);
+            // convert to strong 
+            var stringifiedElement = JsonConvert.SerializeObject(element);
 
-			// create entity property
-			return new EntityProperty(stringifiedElement);
-		}
-		
-		public override Object ConvertFromEntityProperty(PropertyInfo property, EntityProperty entityProperty)
-		{			
-			if (ObjectType != null && typeof(IEnumerable).GetTypeInfo().IsAssignableFrom(ObjectType) && ObjectType.GetTypeInfo().UnderlyingSystemType != null)
-			{				
-				var convertedElements = JsonConvert.DeserializeObject(entityProperty.StringValue, ObjectType);
-				return Activator.CreateInstance(property.PropertyType, convertedElements);
-			} else if (ObjectType != null)
-			{
-				return JsonConvert.DeserializeObject(entityProperty.StringValue, ObjectType);
-			}
-			else
-			{
-				return JsonConvert.DeserializeObject(entityProperty.StringValue, property.PropertyType);
-			}
-		}
-	}
+			// add the property
+			builder.AddProperty(propertyInfo.Name, stringifiedElement);
+        }
+
+        public void ReadProperty<T>(Azure.Data.Tables.TableEntity dataObject, PropertyInfo propertyInfo, T obj)
+        {
+			// check if we have the property in our entity othetwise move forward
+			if (!dataObject.ContainsKey(propertyInfo.Name))
+				return;
+
+            // get the string value
+            var stringValue = Convert.ToString(dataObject[propertyInfo.Name]);
+
+			// prepare the value
+			var resultValue = default(Object);
+
+			// handle the special operations
+            if (ObjectType != null && typeof(IEnumerable).GetTypeInfo().IsAssignableFrom(ObjectType) && ObjectType.GetTypeInfo().UnderlyingSystemType != null)
+            {
+                var convertedElements = JsonConvert.DeserializeObject(stringValue, ObjectType);
+                try
+                {
+                    resultValue = Activator.CreateInstance(propertyInfo.PropertyType, convertedElements);
+                }
+                catch (MissingMethodException)
+                {
+                    resultValue = Activator.CreateInstance(ObjectType, convertedElements);
+                }
+            }
+            else if (ObjectType != null)
+            {
+                resultValue = JsonConvert.DeserializeObject(stringValue, ObjectType);
+            }
+            else
+            {
+                resultValue = JsonConvert.DeserializeObject(stringValue, propertyInfo.PropertyType);
+            }
+
+			// set the value
+			propertyInfo.SetValue(obj, resultValue);
+        }
+    }
 }
