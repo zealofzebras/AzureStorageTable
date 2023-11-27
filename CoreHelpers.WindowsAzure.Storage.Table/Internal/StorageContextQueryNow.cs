@@ -99,7 +99,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Internal
 
                 // set the item
                 if (entityMapper.TypeField == null)
-                    Current = TableEntityDynamic.fromEntity<T>(_inPageEnumerator.Current, entityMapper);
+                    Current = TableEntityDynamic.fromEntity<T>(_inPageEnumerator.Current, entityMapper, _context.context);
                 else
                 {
                     var entity = _inPageEnumerator.Current;
@@ -107,7 +107,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Internal
                     Type type = Type.GetType(typeName);
                     MethodInfo method = typeof(TableEntityDynamic).GetMethod(nameof(TableEntityDynamic.fromEntity));
                     MethodInfo genericMethod = method.MakeGenericMethod(type);
-                    Current = genericMethod.Invoke(null, [_inPageEnumerator.Current, entityMapper] ) as T;
+                    Current = genericMethod.Invoke(null, [_inPageEnumerator.Current, entityMapper, _context.context] ) as T;
                 }
 
                 // done
@@ -153,9 +153,12 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Internal
 
             // evaluate the maxItems
             int? maxPerPage = _context.maxPerPage.HasValue && _context.maxPerPage.Value > 0 ? _context.maxPerPage : null;
-            
+
+            // fix Azurite bug
+            var filter = string.IsNullOrWhiteSpace(_context.filter) ? null : _context.filter;
             // start the query
-            _pageEnumerator = tc.Query<TableEntity>(_context.filter, maxPerPage, _context.select, _context.cancellationToken).AsPages().GetEnumerator();
+            _pageEnumerator = tc.Query<TableEntity>(filter, maxPerPage, _context.select, _context.cancellationToken).AsPages().GetEnumerator();
+            
         }
     }
 
