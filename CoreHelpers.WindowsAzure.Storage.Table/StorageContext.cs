@@ -7,18 +7,25 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
     public partial class StorageContext : IStorageContext
 	{						
 		private IStorageContextDelegate _delegate { get; set; }		
-		private string _connectionString;
+		private TableServiceClient tableServiceClient { get; set; }
 
-		public StorageContext(string storageAccountName, string storageAccountKey, string storageEndpointSuffix = null)
+        public StorageContext(string storageAccountName, string storageAccountKey, string storageEndpointSuffix = null)
 		{
-            _connectionString = String.Format("DefaultEndpointsProtocol={0};AccountName={1};AccountKey={2}", "https", storageAccountName, storageAccountKey);
-			if (!String.IsNullOrEmpty(storageEndpointSuffix))
-                _connectionString = String.Format("DefaultEndpointsProtocol={0};AccountName={1};AccountKey={2};EndpointSuffix={3}", "https", storageAccountName, storageAccountKey, storageEndpointSuffix);					
+            if (!String.IsNullOrEmpty(storageEndpointSuffix))
+                tableServiceClient = new TableServiceClient(string.Format("DefaultEndpointsProtocol={0};AccountName={1};AccountKey={2};EndpointSuffix={3}", "https", storageAccountName, storageAccountKey, storageEndpointSuffix));
+            else
+                tableServiceClient = new TableServiceClient(string.Format("DefaultEndpointsProtocol={0};AccountName={1};AccountKey={2}", "https", storageAccountName, storageAccountKey));
+        
 		}
 
         public StorageContext(string connectionString)
         {
-			_connectionString = connectionString;
+            tableServiceClient = new TableServiceClient(connectionString);
+        }
+
+        public StorageContext(TableServiceClient tableServiceClient)
+        {
+            this.tableServiceClient = tableServiceClient;
         }
 
         public StorageContext(StorageContext parentContext)
@@ -32,8 +39,8 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 			// take the tablename prefix
 			_tableNamePrefix = parentContext._tableNamePrefix;
 
-			// store the connection string
-			_connectionString = parentContext._connectionString;
+            // store the connection string
+            tableServiceClient = parentContext.tableServiceClient;
         }
         
         public void Dispose()
@@ -56,7 +63,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 
         private TableClient GetTableClient(string tableName)
         {
-			return new TableClient(_connectionString, tableName);            
+			return tableServiceClient.GetTableClient(tableName);
         }                                         
     }
 }
