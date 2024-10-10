@@ -1,8 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Azure;
 using Azure.Data.Tables;
-using CoreHelpers.WindowsAzure.Storage.Table.Attributes;
 using CoreHelpers.WindowsAzure.Storage.Table.Extensions;
+using System.Collections.Generic;
 
 namespace CoreHelpers.WindowsAzure.Storage.Table.Serialization
 {
@@ -10,6 +9,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Serialization
     {
         private IDictionary<string, object> _data = new Dictionary<string, object>();
 
+        public ETag ETag { get; set; }
 
         public TableEntityBuilder AddPartitionKey(string pkey)
         {
@@ -44,7 +44,10 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Serialization
 
         public TableEntity Build()
         {
-            return new TableEntity(_data);
+            var entity = new TableEntity(_data);
+            if (ETag != null)
+                entity.ETag = ETag;
+            return entity;
         }
     }
 }
