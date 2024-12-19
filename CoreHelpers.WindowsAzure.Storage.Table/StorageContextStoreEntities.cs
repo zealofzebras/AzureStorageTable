@@ -54,7 +54,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
                 // Add all items
                 foreach (var model in models)
                 {
-                    var entity = TableEntityDynamic.ToEntity<T>(model, entityMapper);
+                    var entity = TableEntityDynamic.ToEntity<T>(model, entityMapper, this);
                     // We can safely base the table transaction on the entity ETag since that is by default, the default etag value unless specifically overridden by the user.
                     switch (storaeOperationType)
                     {
