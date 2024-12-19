@@ -54,22 +54,24 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
                 // Add all items
                 foreach (var model in models)
                 {
+                    var entity = TableEntityDynamic.ToEntity<T>(model, entityMapper);
+                    // We can safely base the table transaction on the entity ETag since that is by default, the default etag value unless specifically overridden by the user.
                     switch (storaeOperationType)
                     {
                         case nStoreOperation.insertOperation:
-                            tableTransactions.Add(new TableTransactionAction(TableTransactionActionType.Add, TableEntityDynamic.ToEntity<T>(model, entityMapper, this)));
+                            tableTransactions.Add(new TableTransactionAction(TableTransactionActionType.Add, entity, entity.ETag));
                             break;
                         case nStoreOperation.insertOrReplaceOperation:
-                            tableTransactions.Add(new TableTransactionAction(TableTransactionActionType.UpsertReplace, TableEntityDynamic.ToEntity<T>(model, entityMapper, this)));
+                            tableTransactions.Add(new TableTransactionAction(TableTransactionActionType.UpsertReplace, entity, entity.ETag));
                             break;
                         case nStoreOperation.mergeOperation:
-                            tableTransactions.Add(new TableTransactionAction(TableTransactionActionType.UpdateMerge, TableEntityDynamic.ToEntity<T>(model, entityMapper, this)));
+                            tableTransactions.Add(new TableTransactionAction(TableTransactionActionType.UpdateMerge, entity, entity.ETag));
                             break;
                         case nStoreOperation.mergeOrInserOperation:
-                            tableTransactions.Add(new TableTransactionAction(TableTransactionActionType.UpsertMerge, TableEntityDynamic.ToEntity<T>(model, entityMapper, this)));
+                            tableTransactions.Add(new TableTransactionAction(TableTransactionActionType.UpsertMerge, entity, entity.ETag));
                             break;
                         case nStoreOperation.delete:
-                            tableTransactions.Add(new TableTransactionAction(TableTransactionActionType.Delete, TableEntityDynamic.ToEntity<T>(model, entityMapper, this)));
+                            tableTransactions.Add(new TableTransactionAction(TableTransactionActionType.Delete, entity, entity.ETag));
                             break;
                     }
 
