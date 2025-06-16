@@ -32,7 +32,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Serialization
                     _data.Add("RowKey", rkey.ToSha256());
                     break;
             }
-            
+
             return this;
         }
 
@@ -47,6 +47,9 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Serialization
             var entity = new TableEntity(_data);
             if (ETag != null)
                 entity.ETag = ETag;
+            else
+                entity.ETag = ETag.All;
+
             return entity;
         }
     }
