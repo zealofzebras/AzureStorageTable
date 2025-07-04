@@ -45,7 +45,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Serialization
         public TableEntity Build()
         {
             var entity = new TableEntity(_data);
-            if (ETag != null)
+            if (ETag != null && ETag != default)
                 entity.ETag = ETag;
             else
                 entity.ETag = ETag.All;
