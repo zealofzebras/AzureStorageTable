@@ -9,6 +9,8 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Serialization
     {
         private IDictionary<string, object> _data = new Dictionary<string, object>();
 
+        public ETag? ETag { get; set; }
+
         public TableEntityBuilder AddPartitionKey(string pkey)
         {
             _data.Add("PartitionKey", pkey);
@@ -43,11 +45,14 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Serialization
         public TableEntity Build()
         {
             var entity = new TableEntity(_data);
-            if (entity.ETag == default)
-                entity.ETag = ETag.All;
 
+            // We need to check the entity Etag since we are explicitly sending it in the storage requests.
+            // This is a way to check if ETag is set and not empty, Etag.ToString() will return the _value property of ETag
+            if (this.ETag.HasValue && !string.IsNullOrWhiteSpace(this.ETag.Value.ToString()))
+                entity.ETag = this.ETag.Value;
+            else if (string.IsNullOrWhiteSpace(entity.ETag.ToString()))
+                entity.ETag = Azure.ETag.All;
             return entity;
         }
     }
 }
-
