@@ -9,8 +9,6 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Serialization
     {
         private IDictionary<string, object> _data = new Dictionary<string, object>();
 
-        public ETag ETag { get; set; }
-
         public TableEntityBuilder AddPartitionKey(string pkey)
         {
             _data.Add("PartitionKey", pkey);
@@ -45,9 +43,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Serialization
         public TableEntity Build()
         {
             var entity = new TableEntity(_data);
-            if (ETag != null && ETag != default)
-                entity.ETag = ETag;
-            else
+            if (entity.ETag == default)
                 entity.ETag = ETag.All;
 
             return entity;
