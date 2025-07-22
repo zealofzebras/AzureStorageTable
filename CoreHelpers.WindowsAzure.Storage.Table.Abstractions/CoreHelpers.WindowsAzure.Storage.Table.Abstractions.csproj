@@ -19,4 +19,8 @@
     <ItemGroup>
         <None Include="..\LICENSE" Pack="true" PackagePath="" />
     </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'net48'">
+        <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="7.0.0" />
+    </ItemGroup>
 </Project>

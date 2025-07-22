@@ -8,6 +8,10 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
     public interface IStorageContextQueryNow<T>
     {
         Task<IEnumerable<T>> Now();
+
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+        IAsyncEnumerable<T> AsAsyncEnumerable();
+#endif
     }
 
     public interface IStorageContextQueryWithFilter<T> : IStorageContextQueryNow<T>
