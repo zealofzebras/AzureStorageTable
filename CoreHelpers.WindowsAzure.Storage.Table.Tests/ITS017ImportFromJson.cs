@@ -2,7 +2,6 @@
 using CoreHelpers.WindowsAzure.Storage.Table.Tests.Contracts;
 using CoreHelpers.WindowsAzure.Storage.Table.Tests.Extensions;
 using CoreHelpers.WindowsAzure.Storage.Table.Tests.Models;
-using Newtonsoft.Json.Linq;
 using Xunit.DependencyInjection;
 
 namespace CoreHelpers.WindowsAzure.Storage.Table.Tests

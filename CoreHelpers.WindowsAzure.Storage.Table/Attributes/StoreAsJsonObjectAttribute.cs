@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Reflection;
 using CoreHelpers.WindowsAzure.Storage.Table.Serialization;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace CoreHelpers.WindowsAzure.Storage.Table.Attributes
 {
@@ -27,7 +27,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Attributes
                 return;
 
             // convert to strong 
-            var stringifiedElement = JsonConvert.SerializeObject(element);
+            var stringifiedElement = JsonSerializer.Serialize(element);
 
 			// add the property
 			builder.AddProperty(propertyInfo.Name, stringifiedElement);
@@ -48,7 +48,7 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Attributes
 			// handle the special operations
             if (ObjectType != null && typeof(IEnumerable).GetTypeInfo().IsAssignableFrom(ObjectType) && ObjectType.GetTypeInfo().UnderlyingSystemType != null)
             {
-                var convertedElements = JsonConvert.DeserializeObject(stringValue, ObjectType);
+                var convertedElements = JsonSerializer.Deserialize(stringValue, ObjectType);
                 try
                 {
                     resultValue = Activator.CreateInstance(propertyInfo.PropertyType, convertedElements);
@@ -60,11 +60,11 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Attributes
             }
             else if (ObjectType != null)
             {
-                resultValue = JsonConvert.DeserializeObject(stringValue, ObjectType);
+                resultValue = JsonSerializer.Deserialize(stringValue, ObjectType);
             }
             else
             {
-                resultValue = JsonConvert.DeserializeObject(stringValue, propertyInfo.PropertyType);
+                resultValue = JsonSerializer.Deserialize(stringValue, propertyInfo.PropertyType);
             }
 
 			// set the value
