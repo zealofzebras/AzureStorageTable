@@ -45,4 +45,8 @@
   <ItemGroup>
     <ProjectReference Include="..\CoreHelpers.WindowsAzure.Storage.Table.Abstractions\CoreHelpers.WindowsAzure.Storage.Table.Abstractions.csproj" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'net48'">
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="7.0.0" />
+  </ItemGroup>
 </Project>

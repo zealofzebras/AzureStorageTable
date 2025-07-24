@@ -51,6 +51,15 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
 
         Task<IEnumerable<T>> QueryAsync<T>(int maxItems = 0) where T : class, new();
 
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+        IAsyncEnumerable<T> QueryAsyncEnumerable<T>(string partitionKey, int maxItems = 0) where T : class, new();
+
+        IAsyncEnumerable<T> QueryAsyncEnumerable<T>(string partitionKey, IEnumerable<QueryFilter> queryFilters, int maxItems = 0)
+            where T : class, new();
+
+        IAsyncEnumerable<T> QueryAsyncEnumerable<T>(int maxItems = 0) where T : class, new();
+#endif
+
         Task DeleteAsync<T>(T model) where T : class, new();
 
         Task DeleteAsync<T>(IEnumerable<T> models, bool allowMultiPartionRemoval = false) where T : class, new();

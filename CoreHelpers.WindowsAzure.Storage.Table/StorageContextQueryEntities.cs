@@ -4,6 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using CoreHelpers.WindowsAzure.Storage.Table.Internal;
 
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+using System.Threading;
+#endif
+
 namespace CoreHelpers.WindowsAzure.Storage.Table
 {
     public partial class StorageContext : IStorageContext
@@ -24,5 +28,16 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
         {
             return new StorageContextQueryWithPartitionKey<T>(this);
         }
+
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+        public IAsyncEnumerable<T> QueryAsyncEnumerable<T>(string partitionKey, int maxItems = 0) where T : class, new()
+            => Query<T>().InPartition(partitionKey).LimitTo(maxItems).AsAsyncEnumerable();
+
+        public IAsyncEnumerable<T> QueryAsyncEnumerable<T>(string partitionKey, IEnumerable<QueryFilter> queryFilters, int maxItems = 0) where T : class, new()
+            => Query<T>().InPartition(partitionKey).Filter(queryFilters).LimitTo(maxItems).AsAsyncEnumerable();
+
+        public IAsyncEnumerable<T> QueryAsyncEnumerable<T>(int maxItems = 0) where T : class, new()
+            => Query<T>().InPartition(null).LimitTo(maxItems).AsAsyncEnumerable();
+#endif
     }
 }
