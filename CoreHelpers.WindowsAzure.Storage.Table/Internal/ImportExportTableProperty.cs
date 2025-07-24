@@ -6,6 +6,10 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Internal
 {
     internal class ImportExportTablePropertyEntity
     {
+        public ImportExportTablePropertyEntity()
+        {
+        }
+
         public ImportExportTablePropertyEntity(string name, int type, object value)
         {
             PropertyName = name;

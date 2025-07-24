@@ -1,7 +1,7 @@
 ﻿using System;
 using Azure.Data.Tables;
 using CoreHelpers.WindowsAzure.Storage.Table.Extensions;
-using Newtonsoft.Json;
+using System.Text.Json;
 using System.IO;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -25,11 +25,12 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
                 if (!existsTable)
                     throw new FileNotFoundException($"Table '{tableName}' does not exist");
 
-                // build the json writer
-                JsonWriter wr = new JsonTextWriter(writer);
+                // build the json writer - System.Text.Json uses Utf8JsonWriter which requires a stream
+                using var stream = new MemoryStream();
+                using var jsonWriter = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false });
                 
                 // prepare the array in result
-                wr.WriteStartArray();
+                jsonWriter.WriteStartArray();
 
                 // enumerate all items from a table
                 var tablePages = tc.QueryAsync<TableEntity>().AsPages();
@@ -45,48 +46,71 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
                         if (onOperation != null)
                             onOperation(ImportExportOperation.processingItem);
 
-                        wr.WriteStartObject();
-                        wr.WritePropertyName(TableConstants.RowKey);
-                        wr.WriteValue(entity.RowKey);
-                        wr.WritePropertyName(TableConstants.PartitionKey);
-                        wr.WriteValue(entity.PartitionKey);
-                        wr.WritePropertyName(TableConstants.Properties);
-                        wr.WriteStartArray();
+                        jsonWriter.WriteStartObject();
+                        jsonWriter.WriteString(TableConstants.RowKey, entity.RowKey);
+                        jsonWriter.WriteString(TableConstants.PartitionKey, entity.PartitionKey);
+                        jsonWriter.WritePropertyName(TableConstants.Properties);
+                        jsonWriter.WriteStartArray();
                         foreach (var propertyKvp in entity)
                         {
                             if (propertyKvp.Key.Equals(TableConstants.PartitionKey) || propertyKvp.Key.Equals(TableConstants.RowKey) || propertyKvp.Key.Equals("odata.etag") || propertyKvp.Key.Equals(TableConstants.Timestamp))
                                 continue;
 
-                            wr.WriteStartObject();
-                            wr.WritePropertyName(TableConstants.PropertyName);
-                            wr.WriteValue(propertyKvp.Key);
-                            wr.WritePropertyName(TableConstants.PropertyType);
-                            wr.WriteValue(propertyKvp.Value.GetType().GetEdmPropertyType());
-                            wr.WritePropertyName(TableConstants.PropertyValue);
+                            jsonWriter.WriteStartObject();
+                            jsonWriter.WriteString(TableConstants.PropertyName, propertyKvp.Key);
+                            jsonWriter.WriteNumber(TableConstants.PropertyType, (int)propertyKvp.Value.GetType().GetEdmPropertyType());
+                            jsonWriter.WritePropertyName(TableConstants.PropertyValue);
 
                             switch (propertyKvp.Value.GetType().GetEdmPropertyType())
                             {
                                 case ExportEdmType.DateTime:
-                                    wr.WriteValue(((DateTimeOffset)propertyKvp.Value).ToUniversalTime());
+                                    jsonWriter.WriteStringValue(((DateTimeOffset)propertyKvp.Value).ToUniversalTime().ToString("O"));
+                                    break;
+                                case ExportEdmType.String:
+                                    jsonWriter.WriteStringValue(propertyKvp.Value.ToString());
+                                    break;
+                                case ExportEdmType.Int32:
+                                    jsonWriter.WriteNumberValue((int)propertyKvp.Value);
+                                    break;
+                                case ExportEdmType.Int64:
+                                    jsonWriter.WriteNumberValue((long)propertyKvp.Value);
+                                    break;
+                                case ExportEdmType.Double:
+                                    jsonWriter.WriteNumberValue((double)propertyKvp.Value);
+                                    break;
+                                case ExportEdmType.Boolean:
+                                    jsonWriter.WriteBooleanValue((bool)propertyKvp.Value);
+                                    break;
+                                case ExportEdmType.Guid:
+                                    jsonWriter.WriteStringValue(propertyKvp.Value.ToString());
+                                    break;
+                                case ExportEdmType.Binary:
+                                    jsonWriter.WriteStringValue(Convert.ToBase64String((byte[])propertyKvp.Value));
                                     break;
                                 default:
-                                    wr.WriteValue(propertyKvp.Value);
+                                    jsonWriter.WriteStringValue(propertyKvp.Value?.ToString() ?? "");
                                     break;
                             }
 
-                            wr.WriteEndObject();
+                            jsonWriter.WriteEndObject();
                         }
-                        wr.WriteEnd();
-                        wr.WriteEndObject();
+                        jsonWriter.WriteEndArray();
+                        jsonWriter.WriteEndObject();
                     }
 
                     if (onOperation != null)
                         onOperation(ImportExportOperation.processedPage);
                 }
 
-                // finishe the export
-                wr.WriteEnd();
-                wr.Flush();
+                // finish the export
+                jsonWriter.WriteEndArray();
+                jsonWriter.Flush();
+                
+                // Write the JSON to the TextWriter
+                stream.Position = 0;
+                using var reader = new StreamReader(stream);
+                await writer.WriteAsync(await reader.ReadToEndAsync());
+                await writer.FlushAsync();
             }
             catch (Exception)
             {
@@ -106,56 +130,100 @@ namespace CoreHelpers.WindowsAzure.Storage.Table
             // store the entities by partition key
             var entityStore = new Dictionary<string, List<TableEntity>>();
 
-            // parse
-            JsonSerializer serializer = new JsonSerializer();
-            using (var jsonReader = new JsonTextReader(reader))
+            // Read the entire JSON content
+            var jsonContent = await reader.ReadToEndAsync();
+            
+            // Parse the JSON array
+            var jsonArray = JsonDocument.Parse(jsonContent);
+            
+            foreach (var jsonElement in jsonArray.RootElement.EnumerateArray())
             {
-                while (jsonReader.Read())
-                {
-                    // deserialize only when there's "{" character in the stream
-                    if (jsonReader.TokenType == JsonToken.StartObject)
-                    {
-                        // get the data model 
-                        var currentModel = serializer.Deserialize<ImportExportTableEntity>(jsonReader);
+                // Deserialize each item to ImportExportTableEntity
+                var currentModel = JsonSerializer.Deserialize<ImportExportTableEntity>(jsonElement.GetRawText());
 
-                        foreach (var property in currentModel.Properties)
+                foreach (var property in currentModel.Properties)
+                {
+                    if ((ExportEdmType)property.PropertyType == ExportEdmType.String && property.PropertyValue is JsonElement jsonVal && jsonVal.ValueKind == JsonValueKind.String)
+                    {
+                        var stringValue = jsonVal.GetString();
+                        if (DateTime.TryParse(stringValue, out var dateValue))
                         {
-                            if ((ExportEdmType)property.PropertyType == ExportEdmType.String && property.PropertyValue is DateTime)
+                            property.PropertyValue = dateValue.ToString("o");
+                        }
+                        else
+                        {
+                            property.PropertyValue = stringValue;
+                        }
+                    } 
+                    else if ((ExportEdmType)property.PropertyType == ExportEdmType.DateTime) 
+                    {
+                        if (property.PropertyValue is JsonElement jsonDateTime && jsonDateTime.ValueKind == JsonValueKind.String)
+                        {
+                            if (DateTime.TryParse(jsonDateTime.GetString(), out var dateTime))
                             {
-                                property.PropertyValue = ((DateTime)property.PropertyValue).ToString("o");
-                            } else if ((ExportEdmType)property.PropertyType == ExportEdmType.DateTime) {
-                                property.PropertyValue = ((DateTime)property.PropertyValue).ToUniversalTime();
+                                property.PropertyValue = dateTime.ToUniversalTime();
                             }
                         }
-
-                        // convert to table entity
-                        var tableEntity = GetTableEntity(currentModel);
-
-                        // add to the right store
-                        if (!entityStore.ContainsKey(tableEntity.PartitionKey))
-                            entityStore.Add(tableEntity.PartitionKey, new List<TableEntity>());
-
-                        // add the entity 
-                        entityStore[tableEntity.PartitionKey].Add(tableEntity);
-
-                        // check if we need to offload this table 
-                        if (entityStore[tableEntity.PartitionKey].Count == 100)
+                        else if (property.PropertyValue is DateTime dt)
                         {
-                            // insert the partition
-                            await tc.SubmitTransactionAsync(entityStore[tableEntity.PartitionKey].Select(e => new TableTransactionAction(TableTransactionActionType.UpsertReplace, e)));
-                            
-                            // clear
-                            entityStore.Remove(tableEntity.PartitionKey);
+                            property.PropertyValue = dt.ToUniversalTime();
+                        }
+                    }
+                    else if (property.PropertyValue is JsonElement otherJsonVal)
+                    {
+                        // Handle other JSON element types appropriately
+                        switch (otherJsonVal.ValueKind)
+                        {
+                            case JsonValueKind.String:
+                                property.PropertyValue = otherJsonVal.GetString();
+                                break;
+                            case JsonValueKind.Number:
+                                if (otherJsonVal.TryGetInt32(out var intVal))
+                                    property.PropertyValue = intVal;
+                                else if (otherJsonVal.TryGetInt64(out var longVal))
+                                    property.PropertyValue = longVal;
+                                else if (otherJsonVal.TryGetDouble(out var doubleVal))
+                                    property.PropertyValue = doubleVal;
+                                break;
+                            case JsonValueKind.True:
+                                property.PropertyValue = true;
+                                break;
+                            case JsonValueKind.False:
+                                property.PropertyValue = false;
+                                break;
+                            case JsonValueKind.Null:
+                                property.PropertyValue = null;
+                                break;
                         }
                     }
                 }
 
-                // post processing
-                foreach (var kvp in entityStore)
+                // convert to table entity
+                var tableEntity = GetTableEntity(currentModel);
+
+                // add to the right store
+                if (!entityStore.ContainsKey(tableEntity.PartitionKey))
+                    entityStore.Add(tableEntity.PartitionKey, new List<TableEntity>());
+
+                // add the entity 
+                entityStore[tableEntity.PartitionKey].Add(tableEntity);
+
+                // check if we need to offload this table 
+                if (entityStore[tableEntity.PartitionKey].Count == 100)
                 {
                     // insert the partition
-                    await tc.SubmitTransactionAsync(kvp.Value.Select(e => new TableTransactionAction(TableTransactionActionType.UpsertReplace, e)));                    
+                    await tc.SubmitTransactionAsync(entityStore[tableEntity.PartitionKey].Select(e => new TableTransactionAction(TableTransactionActionType.UpsertReplace, e)));
+                    
+                    // clear
+                    entityStore.Remove(tableEntity.PartitionKey);
                 }
+            }
+
+            // post processing
+            foreach (var kvp in entityStore)
+            {
+                // insert the partition
+                await tc.SubmitTransactionAsync(kvp.Value.Select(e => new TableTransactionAction(TableTransactionActionType.UpsertReplace, e)));                    
             }
         }
 

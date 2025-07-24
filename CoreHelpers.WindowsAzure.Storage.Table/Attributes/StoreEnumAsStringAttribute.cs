@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Reflection;
 using CoreHelpers.WindowsAzure.Storage.Table.Serialization;
-using Newtonsoft.Json;
 
 namespace CoreHelpers.WindowsAzure.Storage.Table.Attributes
 {
