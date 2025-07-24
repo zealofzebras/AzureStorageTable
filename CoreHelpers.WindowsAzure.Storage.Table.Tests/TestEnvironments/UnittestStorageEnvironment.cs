@@ -17,9 +17,17 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Tests.TestEnvironments
 
                 var filePath = Environment.ExpandEnvironmentVariables(Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".corehelpers.credentials.txt"));
-                Console.WriteLine("Using filesystem credentials");
 
-                return File.ReadLines(filePath).First();
+                if (File.Exists(filePath))
+                {
+
+                    Console.WriteLine("Using filesystem credentials");
+
+                    return File.ReadLines(filePath).First();
+                }
+
+                Console.WriteLine("Using default credentials");
+                return "UseDevelopmentStorage=true";
             }
         }
     }

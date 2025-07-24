@@ -46,7 +46,12 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Tests
 
                 // verify the targetstream
                 var parsedStream = Encoding.Default.GetString(targetStream.GetBuffer()).Split("\0")[0];
-                var expectedStreamValue = "[{\"RowKey\":\"2\",\"PartitionKey\":\"1\",\"Properties\":[{\"PropertyName\":\"CreatedAt\",\"PropertyType\":3,\"PropertyValue\":\"2023-11-10T19:09:50.065462+00:00\"},{\"PropertyName\":\"P\",\"PropertyType\":0,\"PropertyValue\":\"1\"},{\"PropertyName\":\"R\",\"PropertyType\":0,\"PropertyValue\":\"2\"}]}]";
+
+                // NewtonSoft Expected Value
+                //var expectedStreamValue = "[{\"RowKey\":\"2\",\"PartitionKey\":\"1\",\"Properties\":[{\"PropertyName\":\"CreatedAt\",\"PropertyType\":3,\"PropertyValue\":\"2023-11-10T19:09:50.065462+00:00\"},{\"PropertyName\":\"P\",\"PropertyType\":0,\"PropertyValue\":\"1\"},{\"PropertyName\":\"R\",\"PropertyType\":0,\"PropertyValue\":\"2\"}]}]";
+
+                // System.Text.Json Expected Value
+                var expectedStreamValue = "[{\"RowKey\":\"2\",\"PartitionKey\":\"1\",\"Properties\":[{\"PropertyName\":\"P\",\"PropertyType\":0,\"PropertyValue\":\"1\"},{\"PropertyName\":\"R\",\"PropertyType\":0,\"PropertyValue\":\"2\"},{\"PropertyName\":\"CreatedAt\",\"PropertyType\":3,\"PropertyValue\":\"2023-11-10T19:09:50.0654620\\u002B00:00\"}]}]";
                 Assert.Equal(expectedStreamValue, parsedStream);
 
                 // drop table
