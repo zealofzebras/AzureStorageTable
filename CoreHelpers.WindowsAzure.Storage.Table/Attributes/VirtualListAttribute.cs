@@ -1,10 +1,9 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Reflection;
-using HandlebarsDotNet;
-using CoreHelpers.WindowsAzure.Storage.Table.Extensions;
+﻿using CoreHelpers.WindowsAzure.Storage.Table.Extensions;
 using CoreHelpers.WindowsAzure.Storage.Table.Serialization;
+using HandlebarsDotNet;
+using System;
+using System.Collections;
+using System.Reflection;
 
 namespace CoreHelpers.WindowsAzure.Storage.Table.Attributes
 {
