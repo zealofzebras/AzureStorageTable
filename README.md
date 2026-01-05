@@ -2,6 +2,9 @@
 
 ! NOTICE THIS IS A CUSTOM BUILD OF AzureStorageTable that contains the following additional features:
 * Multiple Types in the same table (Base objects)
+* Storing enums as strings in the table
+* Non-duplicating RowKey and PartitionKeys (so data is not duplicated to multiple columns)
+* Related tables, lazy or eagerly loaded relational data
 
 # AzureStorageTable
 This projects implements an abstraction for Azure Storage Tables to use POCOs because deriving every entity 
