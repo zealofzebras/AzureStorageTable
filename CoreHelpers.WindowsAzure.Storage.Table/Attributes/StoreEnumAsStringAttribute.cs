@@ -42,12 +42,19 @@ namespace CoreHelpers.WindowsAzure.Storage.Table.Attributes
             // get the string value
             var stringValue = Convert.ToString(dataObject[propertyInfo.Name]);
 
-			// prepare the value
-			var resultValue = Enum.Parse(propertyInfo.PropertyType, stringValue);
+            // Handle null/empty stored values quickly
+            // Nullable type would be defaulted to null already
+            // non-nullable cannot be set to null
+            if (string.IsNullOrEmpty(stringValue))
+                return;
 
+            // Support nullable enum properties by parsing against the underlying enum type
+            var propType = propertyInfo.PropertyType;
+            var enumType = Nullable.GetUnderlyingType(propType) ?? propType;
 
-			// set the value
-			propertyInfo.SetValue(obj, resultValue);
+            // Parse the enum stringValue name (stored as string) using the resolved enum type
+            var parsed = Enum.Parse(enumType, stringValue);
+            propertyInfo.SetValue(obj, parsed);
         }
     }
 }
